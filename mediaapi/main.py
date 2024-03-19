@@ -9,6 +9,7 @@ from fastapi.exception_handlers import http_exception_handler
 from mediaapi.database import database
 from mediaapi.logging_config import configure_logging
 from mediaapi.routers.post import router as post_router
+from mediaapi.routers.user import router as user_router
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ app.add_middleware(
     CorrelationIdMiddleware
 )  # Logs - Distinguish between different user's requests
 app.include_router(post_router)
+app.include_router(user_router)
 
 
 @app.exception_handler(HTTPException)

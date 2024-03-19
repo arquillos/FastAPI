@@ -14,6 +14,9 @@ class BaseConfig(BaseSettings):
 class GlobalConfig(BaseConfig):
     DATABASE_URL: Optional[str] = None
     DB_FORCE_ROLL_BACK: bool = False
+    # Configuration for JWT token creation
+    SECRET_KEY: str = ""
+    ALGORITHM: str = ""
 
 
 class DevConfig(GlobalConfig):

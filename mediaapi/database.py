@@ -13,6 +13,19 @@ post_table: Table = sqlalchemy.Table(
     metadata,
     sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
     sqlalchemy.Column("body", sqlalchemy.String),
+    sqlalchemy.Column(
+        "user_id", sqlalchemy.ForeignKey(column="users.id"), nullable=False
+    ),
+)
+
+users_table: Table = sqlalchemy.Table(
+    "users",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column(
+        "email", sqlalchemy.String, unique=True
+    ),  # The email address is unique
+    sqlalchemy.Column("password", sqlalchemy.String),
 )
 
 comments_table: Table = sqlalchemy.Table(
@@ -22,6 +35,9 @@ comments_table: Table = sqlalchemy.Table(
     sqlalchemy.Column("body", sqlalchemy.String),
     sqlalchemy.Column(
         "post_id", sqlalchemy.ForeignKey(column="posts.id"), nullable=False
+    ),
+    sqlalchemy.Column(
+        "user_id", sqlalchemy.ForeignKey(column="users.id"), nullable=False
     ),
 )
 

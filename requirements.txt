@@ -7,3 +7,7 @@ pydantic-settings
 rich
 asgi-correlation-id
 python-json-logger
+# Hashing passwords
+bcrypt
+# JWT
+python-jose
