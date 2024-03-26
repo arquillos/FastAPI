@@ -57,3 +57,13 @@ async def logged_in_token(async_client: AsyncClient, registered_user: dict) -> s
     """Get a JWT from a registered user"""
     response = await async_client.post("/token", json=registered_user)
     return response.json()["access_token"]
+
+
+@pytest.fixture()
+async def created_post(async_client: AsyncClient, logged_in_token: str) -> dict:
+    response = await async_client.post(
+        "/post",
+        json={"body": "Test post"},
+        headers={"Authorization": f"Bearer {logged_in_token}"},
+    )
+    return response.json()

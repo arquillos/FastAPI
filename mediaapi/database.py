@@ -41,6 +41,19 @@ comments_table: Table = sqlalchemy.Table(
     ),
 )
 
+like_table: Table = sqlalchemy.Table(
+    "likes",
+    metadata,
+    sqlalchemy.Column("id", sqlalchemy.Integer, primary_key=True),
+    sqlalchemy.Column(
+        "post_id", sqlalchemy.ForeignKey(column="posts.id"), nullable=False
+    ),
+    sqlalchemy.Column(
+        "user_id", sqlalchemy.ForeignKey(column="users.id"), nullable=False
+    ),
+)
+
+
 engine = sqlalchemy.create_engine(
     url=config.DATABASE_URL,
     connect_args={
