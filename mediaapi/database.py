@@ -26,6 +26,7 @@ users_table: Table = sqlalchemy.Table(
         "email", sqlalchemy.String, unique=True
     ),  # The email address is unique
     sqlalchemy.Column("password", sqlalchemy.String),
+    sqlalchemy.Column("confirmed", sqlalchemy.Boolean, default=False),  # New users needs to confirm their email address
 )
 
 comments_table: Table = sqlalchemy.Table(

@@ -25,7 +25,7 @@ async def create_post(async_client: AsyncClient, logged_in_token: str, post_body
 
 @pytest.mark.anyio
 async def test_create_post(
-    async_client: AsyncClient, registered_user: dict, logged_in_token: str
+    async_client: AsyncClient, confirmed_user: dict, logged_in_token: str
 ):
     # Arrange
     body = "Test post"
@@ -43,7 +43,7 @@ async def test_create_post(
     assert {
         "id": 1,
         "body": body,
-        "user_id": registered_user["id"],
+        "user_id": confirmed_user["id"],
     } == response.json()  # SqlAlchemy - Ids starts with value: 1
 
 

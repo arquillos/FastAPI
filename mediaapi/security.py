@@ -2,7 +2,8 @@
 
 import datetime
 import logging
-from typing import Annotated, Optional
+from enum import Enum
+from typing import Annotated, Literal, Optional
 
 import bcrypt
 from bcrypt import checkpw, hashpw
@@ -24,8 +25,25 @@ oaut2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
 def access_token_expire_minutes() -> int:
-    """To simplify testing (create_access_token)"""
-    return 30
+    """
+    User token
+    To simplify testing (create_access_token)
+    """
+    return 30  # 30 mins
+
+
+def confirm_token_expire_minutes() -> int:
+    """
+    Register token
+    To simplify testing (create_access_token)
+    """
+    return 1440  # 1 day
+
+
+class JwtTypes(str, Enum):
+    """JWT types"""
+    ACCESS = "access"  # JWT for a registered user
+    CONFIRMATION = "confirmation"  # JWT for a user to register
 
 
 def create_access_token(email: str):
@@ -39,11 +57,71 @@ def create_access_token(email: str):
     expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
         minutes=access_token_expire_minutes()
     )
-    jwt_data = {"sub": email, "exp": expire}
+    jwt_data = {
+        "sub": email, 
+        "exp": expire,
+        "type": JwtTypes.ACCESS.value
+        }
     encoded_jwt = jwt.encode(
         claims=jwt_data, key=config.SECRET_KEY, algorithm=config.ALGORITHM
     )
     return encoded_jwt
+
+
+def create_confirmation_token(email: str):
+    """Create a JWT for confirmation email"""
+    if email == "":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="empty email"
+        )
+
+    logger.debug("Creating a confirmation token for user: %s", email)
+    expire = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+        minutes=confirm_token_expire_minutes()
+    )
+    jwt_data = {
+        "sub": email, 
+        "exp": expire,
+        "type": JwtTypes.CONFIRMATION.value
+        }
+    encoded_jwt = jwt.encode(
+        claims=jwt_data, key=config.SECRET_KEY, algorithm=config.ALGORITHM
+    )
+    return encoded_jwt
+
+
+def get_subject_for_token_type(
+    token: str, token_type: Literal[JwtTypes.ACCESS.value, JwtTypes.CONFIRMATION.value]
+    ) -> str:
+    """Get the email from a token. Checks for the expected token type"""
+    try:
+        payload: dict = jwt.decode(
+            token=token, key=config.SECRET_KEY, algorithms=[config.ALGORITHM]
+        )
+    except ExpiredSignatureError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired JWT token"
+        ) from exc
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials (JWT error)",
+        ) from exc
+
+    email = payload.get("sub")
+    if email is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token is missing 'sub' field",
+        )
+    payload_type = payload.get("type")
+    if payload_type is None or payload_type != token_type:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid JWT type, expected: {token_type}",
+        )
+
+    return email
 
 
 def get_password(password: str) -> str:
@@ -67,6 +145,7 @@ async def get_user(email: str) -> Optional[UserIn]:
         result: UserIn = await database.fetch_one(query)  # type: ignore
         if result:
             return result
+        return None
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,14 +160,21 @@ async def authenticate_user(email: str, password: str) -> Optional[UserIn]:
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User does not exist",
+            # detail="Incorrect user",
+            detail="Invalid user or password",
         )
     if not verify_password(password, user.password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            # detail="User does not exist (incorrect password)",
-            detail="User does not exist",
+            # detail="Incorrect password",
+            detail="Invalid user or password",
         )
+    # Require a confirmed user before using any protected endpoint
+    if not user.confirmed:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="The user has not confirmed the email",
+        )  
     return user
 
 
@@ -98,23 +184,11 @@ async def get_user_from_a_jwt(
     """Get the user if is exists in the DB
     @param: token: FastAPI Dependency injection
     """
-    try:
-        payload = jwt.decode(
-            token=token, key=config.SECRET_KEY, algorithms=[config.ALGORITHM]
-        )
-        email = payload["sub"]
-        if email is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Empty email after decoding the JWT",
-            )
-    except ExpiredSignatureError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Expired JWT token"
-        ) from exc
-    except JWTError as exc:
+    email = get_subject_for_token_type(token, JwtTypes.ACCESS.value)
+    user = await get_user(email)
+    if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials (JWT error)",
-        ) from exc
-    return await get_user(email)
+            detail="Could not find user for this user",
+        )  
+    return user

@@ -53,9 +53,22 @@ async def registered_user(async_client: AsyncClient) -> dict:
 
 
 @pytest.fixture()
-async def logged_in_token(async_client: AsyncClient, registered_user: dict) -> str:
+async def confirmed_user(registered_user: dict) -> dict:
+    """Fixture to get a confirmed user"""
+    query: ClauseElement = (
+        users_table.update()
+        .where(users_table.c.email == registered_user["email"])
+        .values(confirmed = True)
+    )
+    await database.execute(query=query)
+
+    return registered_user
+
+
+@pytest.fixture()
+async def logged_in_token(async_client: AsyncClient, confirmed_user: dict) -> str:
     """Get a JWT from a registered user"""
-    response = await async_client.post("/token", json=registered_user)
+    response = await async_client.post("/token", json=confirmed_user)
     return response.json()["access_token"]
 
 

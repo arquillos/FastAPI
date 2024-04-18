@@ -89,14 +89,14 @@ async def test_register_user_same_password(async_client: AsyncClient):
 
 
 @pytest.mark.anyio
-async def test_token_user_exists(async_client: AsyncClient, registered_user: dict):
+async def test_token_user_exists(async_client: AsyncClient, confirmed_user: dict):
     """Checking JWT generation for a registered user"""
     # Act
     response = await async_client.post(
         "/token",
         json={
-            "email": registered_user["email"],
-            "password": registered_user["password"],
+            "email": confirmed_user["email"],
+            "password": confirmed_user["password"],
         },
     )
 
@@ -114,13 +114,28 @@ async def test_token_user_not_exists(async_client: AsyncClient):
 
     # Assert
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    assert "User does not exist" == response.json()["detail"]
+    assert "Invalid user or password" == response.json()["detail"]
 
 
 @pytest.mark.anyio
-async def test_token_incorrect_password(
-    async_client: AsyncClient, registered_user: dict
-):
+async def test_token_user_not_confirmed(async_client: AsyncClient, registered_user: dict):
+    """Checking JWT generation for a non confirmed user"""
+    # Act
+    response = await async_client.post(
+        "/token", 
+        json={
+            "email": registered_user["email"],
+            "password": registered_user["password"]
+            }
+    )
+
+    # Assert
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert "The user has not confirmed the email" == response.json()["detail"]
+
+
+@pytest.mark.anyio
+async def test_token_incorrect_password(async_client: AsyncClient, registered_user: dict):
     """Checking JWT generation for a user with incorrect password"""
     # Act
     response = await async_client.post(
@@ -129,7 +144,7 @@ async def test_token_incorrect_password(
 
     # Assert
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    assert "User does not exist" == response.json()["detail"]
+    assert "Invalid user or password" == response.json()["detail"]
 
 
 @pytest.mark.anyio
@@ -159,13 +174,11 @@ async def test_token_empty_password(async_client: AsyncClient, registered_user: 
 
     # Assert
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    assert "User does not exist" == response.json()["detail"]
+    assert "Invalid user or password" == response.json()["detail"]
 
 
 @pytest.mark.anyio
-async def test_token_missing_email_field(
-    async_client: AsyncClient, registered_user: dict
-):
+async def test_token_missing_email_field(async_client: AsyncClient, registered_user: dict):
     """Checking JWT generation for a user with no email field"""
     # Act
     response = await async_client.post(
@@ -180,9 +193,7 @@ async def test_token_missing_email_field(
 
 
 @pytest.mark.anyio
-async def test_token_missing_password_field(
-    async_client: AsyncClient, registered_user: dict
-):
+async def test_token_missing_password_field(async_client: AsyncClient, registered_user: dict):
     """Checking JWT generation for a user with no password field"""
     # Act
     response = await async_client.post(
